@@ -1,0 +1,19 @@
+{
+  "version": "2.0",
+  "managedDependency": {
+    "Enabled": true
+  },
+  "extensionBundle": {
+    "id": "Microsoft.Azure.Functions.ExtensionBundle",
+    "version": "[2.*, 3.0.0)"
+  },
+  "functionTimeout": "00:05:00",
+  "logging": {
+    "logLevel": {
+      "default": "Information",
+      "Host.Results": "Information",
+      "Function": "Information",
+      "Host.Aggregator": "Information"
+    }
+  }
+}

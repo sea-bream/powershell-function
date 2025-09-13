@@ -1,0 +1,50 @@
+# Azure Functions
+bin
+obj
+appsettings.json
+local.settings.json
+
+# Logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage (http://gruntjs.com/creating-plugins#storing-task-files)
+.grunt
+
+# node_modules is not included for Azure Functions
+node_modules/
+
+# Bower dependency directory (https://bower.io/)
+bower_components
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+
+# VS Code
+.vscode/
+
+# Azure Functions Core Tools
+.azure/
