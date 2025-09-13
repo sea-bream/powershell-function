@@ -1,0 +1,268 @@
+name: Minimal Checks
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  file-check:
+    name: Check Files Exist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: List all files
+        run: |
+          echo "📁 Repository contents:"
+          find . -type f -name "*.ps1" -o -name "*.json" -o -name "*.md" | head -20
+
+      - name: Check for PowerShell files
+        run: |
+          if find . -name "*.ps1" | grep -q .; then
+            echo "✅ Found PowerShell files"
+            find . -name "*.ps1"
+          else
+            echo "❌ No PowerShell files found"
+            exit 1
+          fi
+
+      - name: Check for JSON files
+        run: |
+          if find . -name "*.json" | grep -q .; then
+            echo "✅ Found JSON files"
+            find . -name "*.json"
+          else
+            echo "⚠️ No JSON files found"
+          fi
+
+  basic-validation:
+    name: Basic File Validation
+    runs-on: ubuntu-latest
+    needs: file-check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check JSON syntax (if files exist)
+        run: |
+          echo "🔍 Checking JSON files..."
+          json_files=$(find . -name "*.json" 2>/dev/null || true)
+          
+          if [ -z "$json_files" ]; then
+            echo "ℹ️ No JSON files to validate"
+            exit 0
+          fi
+          
+          valid_json=true
+          for file in $json_files; do
+            echo "Checking: $file"
+            if jq empty "$file" 2>/dev/null; then
+              echo "✅ $file is valid JSON"
+            else
+              echo "⚠️ $file has JSON syntax issues (but not failing build)"
+              valid_json=false
+            fi
+          done
+          
+          if [ "$valid_json" = true ]; then
+            echo "✅ All JSON files are valid"
+          else
+            echo "⚠️ Some JSON files have issues but continuing..."
+          fi
+
+  connectivity-test:
+    name: Test Internet Connection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test basic connectivity
+        run: |
+          echo "🌐 Testing internet connectivity..."
+          
+          # Test Google (should always work)
+          if curl -s --connect-timeout 5 https://google.com > /dev/null; then
+            echo "✅ Internet connection working"
+          else
+            echo "❌ No internet connection"
+            exit 1
+          fi
+          
+          # Test CoinGecko API if accessible
+          if curl -s --connect-timeout 10 https://api.coingecko.com/api/v3/ping > /dev/null; then
+            echo "✅ CoinGecko API accessible"
+          else
+            echo "⚠️ CoinGecko API not accessible (but not failing)"
+          fi
+
+  security-scan:
+    name: Security Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for exposed secrets
+        run: |
+          echo "🔍 Scanning for potential secrets..."
+          
+          # Common secret patterns
+          secrets_found=false
+          
+          # Check for API keys
+          if grep -r -i "api[_-]key\s*=" . --include="*.ps1" --include="*.json" --include="*.yml" --include="*.yaml" 2>/dev/null | grep -v "example\|sample\|placeholder"; then
+            echo "⚠️ Found potential API key references"
+            secrets_found=true
+          fi
+          
+          # Check for passwords
+          if grep -r -i "password\s*=" . --include="*.ps1" --include="*.json" 2>/dev/null | grep -v "example\|sample\|placeholder\|PasswordAuthentication"; then
+            echo "⚠️ Found potential password references"
+            secrets_found=true
+          fi
+          
+          # Check for connection strings
+          if grep -r -i "connectionstring\|conn.*string" . --include="*.ps1" --include="*.json" 2>/dev/null | grep -v "example\|sample"; then
+            echo "⚠️ Found potential connection strings"
+            secrets_found=true
+          fi
+          
+          # Check for private keys
+          if find . -name "*.pem" -o -name "*.key" -o -name "*.p12" -o -name "*.pfx" | grep -q .; then
+            echo "❌ Found private key files"
+            find . -name "*.pem" -o -name "*.key" -o -name "*.p12" -o -name "*.pfx"
+            exit 1
+          fi
+          
+          if [ "$secrets_found" = true ]; then
+            echo "⚠️ Potential secrets detected - please review"
+          else
+            echo "✅ No obvious secrets found"
+          fi
+
+      - name: Check for sensitive files
+        run: |
+          echo "🔍 Checking for sensitive files..."
+          
+          sensitive_found=false
+          
+          # Environment files
+          if find . -name ".env*" -o -name "*.env" | grep -q .; then
+            echo "⚠️ Found environment files:"
+            find . -name ".env*" -o -name "*.env"
+            sensitive_found=true
+          fi
+          
+          # Backup files
+          if find . -name "*.bak" -o -name "*.backup" -o -name "*~" | grep -q .; then
+            echo "⚠️ Found backup files:"
+            find . -name "*.bak" -o -name "*.backup" -o -name "*~"
+            sensitive_found=true
+          fi
+          
+          # Log files with potential sensitive data
+          if find . -name "*.log" | grep -q .; then
+            echo "⚠️ Found log files (may contain sensitive data):"
+            find . -name "*.log"
+            sensitive_found=true
+          fi
+          
+          if [ "$sensitive_found" = false ]; then
+            echo "✅ No sensitive files detected"
+          fi
+
+      - name: PowerShell security scan
+        run: |
+          echo "🔍 Basic PowerShell security checks..."
+          
+          ps_files=$(find . -name "*.ps1" 2>/dev/null || true)
+          
+          if [ -z "$ps_files" ]; then
+            echo "ℹ️ No PowerShell files to scan"
+            exit 0
+          fi
+          
+          security_issues=false
+          
+          for file in $ps_files; do
+            echo "Scanning: $file"
+            
+            # Check for Invoke-Expression (potential code injection)
+            if grep -i "Invoke-Expression\|IEX\s" "$file" >/dev/null 2>&1; then
+              echo "⚠️ $file contains Invoke-Expression (potential security risk)"
+              security_issues=true
+            fi
+            
+            # Check for dangerous cmdlets
+            if grep -i "Invoke-WebRequest.*-Uri.*\$" "$file" >/dev/null 2>&1; then
+              echo "⚠️ $file has dynamic web requests (review needed)"
+              security_issues=true
+            fi
+            
+            # Check for credential handling
+            if grep -i "ConvertTo-SecureString.*-AsPlainText" "$file" >/dev/null 2>&1; then
+              echo "⚠️ $file handles credentials as plain text"
+              security_issues=true
+            fi
+            
+            # Check for execution policy bypass
+            if grep -i "ExecutionPolicy.*Bypass\|Set-ExecutionPolicy.*Unrestricted" "$file" >/dev/null 2>&1; then
+              echo "⚠️ $file modifies execution policy"
+              security_issues=true
+            fi
+          done
+          
+          if [ "$security_issues" = false ]; then
+            echo "✅ No obvious PowerShell security issues found"
+          else
+            echo "⚠️ Some security issues detected - please review"
+          fi
+
+      - name: Check file permissions
+        run: |
+          echo "🔍 Checking file permissions..."
+          
+          # Check for executable files that shouldn't be
+          suspicious_executables=$(find . -type f -executable -name "*.json" -o -name "*.md" -o -name "*.txt" 2>/dev/null || true)
+          
+          if [ -n "$suspicious_executables" ]; then
+            echo "⚠️ Found unexpectedly executable files:"
+            echo "$suspicious_executables"
+          else
+            echo "✅ File permissions look normal"
+          fi
+
+  dependency-security:
+    name: Dependency Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for dependency files
+        run: |
+          echo "🔍 Checking for dependency security issues..."
+          
+          # Check requirements.psd1 for PowerShell modules
+          if [ -f "requirements.psd1" ]; then
+            echo "✅ Found requirements.psd1"
+            
+            # Basic check for potentially risky modules
+            if grep -i "invoke-\|download\|web\|http" requirements.psd1 >/dev/null 2>&1; then
+              echo "⚠️ Found modules with web/download capabilities - ensure they're trusted"
+            fi
+          fi
+          
+          # Check for package.json (Node.js)
+          if [ -f "package.json" ]; then
+            echo "⚠️ Found package.json - consider using npm audit"
+          fi
+          
+          # Check for any other dependency files
+          dep_files=$(find . -name "*.lock" -o -name "packages.config" -o -name "*.csproj" 2>/dev/null || true)
+          if [ -n "$dep_files" ]; then
+            echo "ℹ️ Found dependency files:"
+            echo "$dep_files"
+          fi
+          
+          echo "✅ Dependency security check completed"
