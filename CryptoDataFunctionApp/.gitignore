@@ -6,6 +6,7 @@ local.settings.json
 
 # Logs
 *.log
+logs/
 
 # Runtime data
 pids
@@ -42,9 +43,59 @@ bower_components
 
 # dotenv environment variables file
 .env
+.env.*
 
 # VS Code
 .vscode/
 
 # Azure Functions Core Tools
 .azure/
+
+# ENHANCED SECURITY ADDITIONS
+# ===============================
+
+# Sensitive files
+*.key
+*.pem
+*.p12
+*.pfx
+*.cert
+*.crt
+
+# Backup files that might contain sensitive data
+*.bak
+*.backup
+*~
+*.swp
+*.tmp
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Configuration files that might contain secrets
+config.json
+secrets.json
+credentials.json
+*.config
+
+# Azure specific
+*.azureauth
+*.subscriptions
+
+# PowerShell profiles (might contain credentials)
+Microsoft.PowerShell_profile.ps1
+profile.ps1
+
+# Terraform (if used)
+*.tfstate
+*.tfstate.backup
+.terraform/
+
+# Kubernetes (if used)
+kubeconfig
+*.kubeconfig
+
+# Temporary Azure CLI files
+.azure-cli/
