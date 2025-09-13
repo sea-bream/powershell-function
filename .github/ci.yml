@@ -1,0 +1,99 @@
+name: CI Pipeline
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Job names become check names
+  powershell-lint:
+    name: PowerShell Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+
+      - name: Run PowerShell Linter
+        shell: pwsh
+        run: |
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse -Settings PSGallery
+          if ($results) {
+            $results | Format-Table
+            exit 1
+          }
+          Write-Host "✅ PowerShell linting passed"
+
+  function-validation:
+    name: Azure Function Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate function.json
+        run: |
+          if ! jq empty function.json 2>/dev/null; then
+            echo "❌ function.json is invalid"
+            exit 1
+          fi
+          echo "✅ function.json is valid"
+
+      - name: Validate host.json
+        run: |
+          if ! jq empty host.json 2>/dev/null; then
+            echo "❌ host.json is invalid"
+            exit 1
+          fi
+          echo "✅ host.json is valid"
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  test-function:
+    name: Function Testing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Azure Functions Core Tools
+        run: |
+          wget -q https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
+          sudo dpkg -i packages-microsoft-prod.deb
+          sudo apt-get update
+          sudo apt-get install azure-functions-core-tools-4
+
+      - name: Start Function App (Background)
+        run: |
+          cd $GITHUB_WORKSPACE
+          func start --port 7071 &
+          sleep 30  # Wait for function to start
+
+      - name: Test Function Endpoints
+        run: |
+          # Test if function is responding
+          response=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:7071/api/CryptoDataFunction?action=top&limit=1")
+          if [ "$response" != "200" ]; then
+            echo "❌ Function test failed with status $response"
+            exit 1
+          fi
+          echo "✅ Function tests passed"
