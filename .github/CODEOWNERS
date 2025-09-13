@@ -1,0 +1,3 @@
+# Require review from specific people
+* @sea-bream
+*.ps1 @sea-bream
