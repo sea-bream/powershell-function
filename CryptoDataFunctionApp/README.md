@@ -58,7 +58,7 @@ CryptoDataFunctionApp/
 │   ├── function.json           # Function configuration
 │   └── run.ps1                # Main PowerShell code
 ├── host.json                   # Host configuration
-├── local.settings.json         # Local development settings
+├── local.settings.example.json # Example local development settings
 ├── profile.ps1               # PowerShell profile for cold starts
 ├── requirements.psd1          # PowerShell module dependencies
 ├── test_crypto_function_clean.sh  # Test script
@@ -92,7 +92,39 @@ pwsh --version
 
 You should see version numbers returned. If you get "command not found" errors, you need to install the missing tools.
 
-### Step 3: Start the Function Locally
+### Step 3: Configure Local Settings
+
+Set up your local development configuration:
+
+1. **Copy the example settings file:**
+   ```bash
+   cp local.settings.example.json local.settings.json
+   ```
+
+2. **Modify settings as needed for your environment:**
+   - The default settings should work for most local development
+   - You can change the port number if 7071 is already in use
+   - Add any additional configuration variables you might need
+
+The `local.settings.json` file is excluded from git to prevent accidentally committing sensitive configuration data.
+
+**Example `local.settings.example.json` content:**
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "powershell",
+    "FUNCTIONS_WORKER_RUNTIME_VERSION": "7.2"
+  },
+  "Host": {
+    "LocalHttpPort": 7071,
+    "CORS": "*"
+  }
+}
+```
+
+### Step 4: Start the Function Locally
 
 Navigate to your project folder and start the function:
 
@@ -113,7 +145,7 @@ Functions:
 
 **Important**: Keep this terminal window open. The function is now running locally.
 
-### Step 4: Test the Function
+### Step 5: Test the Function
 
 Open a new terminal window and test the function:
 
