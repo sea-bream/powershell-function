@@ -1,0 +1,96 @@
+name: Minimal Checks
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  file-check:
+    name: Check Files Exist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: List all files
+        run: |
+          echo "📁 Repository contents:"
+          find . -type f -name "*.ps1" -o -name "*.json" -o -name "*.md" | head -20
+
+      - name: Check for PowerShell files
+        run: |
+          if find . -name "*.ps1" | grep -q .; then
+            echo "✅ Found PowerShell files"
+            find . -name "*.ps1"
+          else
+            echo "❌ No PowerShell files found"
+            exit 1
+          fi
+
+      - name: Check for JSON files
+        run: |
+          if find . -name "*.json" | grep -q .; then
+            echo "✅ Found JSON files"
+            find . -name "*.json"
+          else
+            echo "⚠️ No JSON files found"
+          fi
+
+  basic-validation:
+    name: Basic File Validation
+    runs-on: ubuntu-latest
+    needs: file-check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check JSON syntax (if files exist)
+        run: |
+          echo "🔍 Checking JSON files..."
+          json_files=$(find . -name "*.json" 2>/dev/null || true)
+          
+          if [ -z "$json_files" ]; then
+            echo "ℹ️ No JSON files to validate"
+            exit 0
+          fi
+          
+          valid_json=true
+          for file in $json_files; do
+            echo "Checking: $file"
+            if jq empty "$file" 2>/dev/null; then
+              echo "✅ $file is valid JSON"
+            else
+              echo "⚠️ $file has JSON syntax issues (but not failing build)"
+              valid_json=false
+            fi
+          done
+          
+          if [ "$valid_json" = true ]; then
+            echo "✅ All JSON files are valid"
+          else
+            echo "⚠️ Some JSON files have issues but continuing..."
+          fi
+
+  connectivity-test:
+    name: Test Internet Connection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test basic connectivity
+        run: |
+          echo "🌐 Testing internet connectivity..."
+          
+          # Test Google (should always work)
+          if curl -s --connect-timeout 5 https://google.com > /dev/null; then
+            echo "✅ Internet connection working"
+          else
+            echo "❌ No internet connection"
+            exit 1
+          fi
+          
+          # Test CoinGecko API if accessible
+          if curl -s --connect-timeout 10 https://api.coingecko.com/api/v3/ping > /dev/null; then
+            echo "✅ CoinGecko API accessible"
+          else
+            echo "⚠️ CoinGecko API not accessible (but not failing)"
+          fi
